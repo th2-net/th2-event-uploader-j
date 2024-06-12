@@ -17,12 +17,9 @@
 package com.exactpro.th2.uploader.event.bean
 
 import com.exactpro.th2.common.grpc.MessageID
-import com.fasterxml.jackson.databind.PropertyNamingStrategies
-import com.fasterxml.jackson.databind.annotation.JsonNaming
 import com.google.protobuf.util.Timestamps
 import kotlinx.serialization.Serializable
 
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy::class)
 @Serializable
 class MessageIdBean(
     private val bookName: String,

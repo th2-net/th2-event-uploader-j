@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.exactpro.th2"
-version = "1.0-SNAPSHOT"
+version = "0.0.1"
 
 repositories {
     mavenCentral()
@@ -22,13 +22,15 @@ repositories {
 }
 
 dependencies {
-    implementation("com.exactpro.th2:common:5.13.1-event-raw-body-+")
+    implementation("com.exactpro.th2:common:5.13.1-dev")
     implementation("com.exactpro.th2:common-utils:2.2.3-dev")
-    implementation("com.fasterxml.jackson.core:jackson-core")
-    implementation("com.fasterxml.jackson.core:jackson-databind")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.5.1")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+
     implementation("io.github.microutils:kotlin-logging:3.0.5")
+
+    implementation("commons-cli:commons-cli:1.7.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
@@ -43,5 +45,5 @@ kotlin {
 }
 
 application {
-    mainClass = "com.exactpro.th2.uploader.event.MainKt"
+    mainClass = "com.exactpro.th2.uploader.event.AppKt"
 }

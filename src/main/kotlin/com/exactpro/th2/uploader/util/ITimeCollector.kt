@@ -47,7 +47,7 @@ interface ITimeCollector {
     }
 }
 
-class TimeCollectorDummy private constructor() : ITimeCollector {
+object TimeCollectorDummy : ITimeCollector {
     override fun put(time: Long): Boolean = false
 
     override fun <T> measure(func: () -> T): T = func()
@@ -57,11 +57,6 @@ class TimeCollectorDummy private constructor() : ITimeCollector {
     override fun report(comment: String, divider: Long) {}
 
     override fun reset() {}
-
-    companion object {
-        @JvmField
-        val INSTANT = TimeCollectorDummy()
-    }
 }
 
 class TimeCollector(private val report: (String) -> Unit = ::println) : ITimeCollector {

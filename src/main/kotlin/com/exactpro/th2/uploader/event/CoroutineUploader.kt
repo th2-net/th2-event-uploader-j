@@ -31,6 +31,7 @@ import com.exactpro.th2.uploader.event.util.createEvent
 import com.exactpro.th2.uploader.event.util.toProtoEvent
 import com.exactpro.th2.uploader.util.TimeCollector
 import com.exactpro.th2.uploader.util.TimeCollectorDummy
+import kotlinx.serialization.json.Json
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.Executors
@@ -55,7 +56,7 @@ class CoroutineUploader(
         val batchChannel = Channel<EventBatch>(batchBufferSize)
 
         val readDiffered = async {
-            return@async read(eventsPath, beanChannel)
+            read(eventsPath, beanChannel)
         }
         val prepareJob = launch {
             LOGGER.info { "Prepare coroutine started" }
@@ -66,14 +67,9 @@ class CoroutineUploader(
             send(batchChannel)
         }
 
-        val readEvents = readDiffered.await()
-
         prepareJob.join()
-        batchChannel.close()
-
         sendJob.join()
-
-        return@runBlocking readEvents
+        readDiffered.await()
     }
 
     private suspend fun read(path: Path, channel: Channel<EventBean>): Long {
@@ -88,7 +84,7 @@ class CoroutineUploader(
             totalTimes.measures {
                 path.bufferedReader().use { reader ->
                     reader.lineSequence().forEach { line ->
-                        val eventBean = readTimes.measure { CommonFactory.MAPPER.readValue(line, EventBean::class.java) }
+                        val eventBean = readTimes.measure { Json.decodeFromString(EventBean.serializer(), line) }
                         beanChannelTimes.measures { channel.send(eventBean) }
                         counter += 1
                     }
@@ -159,6 +155,7 @@ class CoroutineUploader(
             LOGGER.error(e) { "Prepare method failure, sent [batches: $batches, events: $events]" }
             throw e
         } finally {
+            batchChannel.close()
             batchChannelTimes.report("Prepare: batch channel (event/sec)", eventInBatch.toLong())
             eventTimes.report("Prepare: event created (event/sec)")
             batchTimes.report("Prepare: batch created (event/sec)", eventInBatch.toLong())
@@ -199,7 +196,7 @@ class CoroutineUploader(
     private fun createTimeCollector(enabled: Boolean, report: (String) -> Unit) = if (enabled) {
         TimeCollector(report)
     } else {
-        TimeCollectorDummy.INSTANT
+        TimeCollectorDummy
     }
 
     override fun close() {
