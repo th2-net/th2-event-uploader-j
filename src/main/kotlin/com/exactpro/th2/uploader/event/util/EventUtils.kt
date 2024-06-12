@@ -18,13 +18,14 @@ package com.exactpro.th2.uploader.event.util
 
 import com.exactpro.th2.common.event.Event
 import com.exactpro.th2.common.event.IBodyData
+import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.factory.CommonFactory
-import com.exactpro.th2.uploader.event.bean.EventBean
-import com.exactpro.th2.uploader.event.bean.MessageIdBean
+import com.exactpro.th2.common.schema.message.MessageRouter
 
 fun createEvent(
-    factory: CommonFactory,
+    eventRouter: MessageRouter<EventBatch>,
+    book: String,
+    scope: String,
     name: String,
     status: Event.Status = Event.Status.PASSED,
     body: IBodyData? = null,
@@ -36,22 +37,11 @@ fun createEvent(
         body?.let(this::bodyData)
 
         val batch = if (parentEventId == null) {
-            val boxCfg = factory.boxConfiguration
-            toBatchProto(boxCfg.bookName, boxCfg.boxName)
+            toBatchProto(book, scope)
         } else {
             toBatchProto(parentEventId)
         }
 
-        factory.eventBatchRouter.send(batch)
+        eventRouter.send(batch)
         batch.getEvents(0).id
     }
-
-
-fun EventBean.toProtoEvent(parentEventId: EventID): com.exactpro.th2.common.grpc.Event = Event.start().apply {
-    name(this@toProtoEvent.name)
-    type(this@toProtoEvent.type)
-    rawBody(this@toProtoEvent.body.toByteArray())
-    this@toProtoEvent.attachedMessageIds.asSequence()
-        .map(MessageIdBean::toProto)
-        .forEach(this::messageID)
-}.toProto(parentEventId)

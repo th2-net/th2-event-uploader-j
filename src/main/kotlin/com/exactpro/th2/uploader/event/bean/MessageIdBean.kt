@@ -22,14 +22,14 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 class MessageIdBean(
-    private val bookName: String,
+    private val book: String,
     private val alias: String,
     private val group: String,
     private val timestamp: Long,
     private val sequence: Long,
 ) {
     fun toProto(): MessageID = MessageID.newBuilder().apply {
-        this.bookName = this@MessageIdBean.bookName
+        this.bookName = this@MessageIdBean.book
         this.timestamp = Timestamps.fromNanos(this@MessageIdBean.timestamp)
         this.sequence = this@MessageIdBean.sequence
         this.connectionIdBuilder.setSessionGroup(this@MessageIdBean.group)

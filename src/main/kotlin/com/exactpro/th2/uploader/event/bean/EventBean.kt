@@ -16,12 +16,24 @@
 
 package com.exactpro.th2.uploader.event.bean
 
+import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.grpc.EventID
 import kotlinx.serialization.Serializable
+import com.exactpro.th2.common.grpc.Event as ProtoEvent
 
 @Serializable
 class EventBean(
-    val name: String,
-    val type: String,
-    val body: String,
-    val attachedMessageIds: List<MessageIdBean>
-)
+    private val name: String? = null,
+    private val type: String? = null,
+    private val body: String? = null,
+    private val attachedMessageIds: List<MessageIdBean> = emptyList()
+) {
+    fun toProtoEvent(parentEventId: EventID): ProtoEvent = Event.start().apply {
+        name(this@EventBean.name)
+        type(this@EventBean.type)
+        this@EventBean.body?.toByteArray()?.let(::rawBody)
+        this@EventBean.attachedMessageIds.asSequence()
+            .map(MessageIdBean::toProto)
+            .forEach(this::messageID)
+    }.toProto(parentEventId)
+}

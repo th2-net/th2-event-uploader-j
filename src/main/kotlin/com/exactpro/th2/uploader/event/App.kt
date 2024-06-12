@@ -19,12 +19,15 @@ package com.exactpro.th2.uploader.event
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.uploader.event.AppOption.Companion.buildOptions
 import com.exactpro.th2.uploader.event.AppOption.EVENTS_FILE_OPTION
+import com.exactpro.th2.uploader.event.AppOption.EVENT_BOOK_OPTION
 import com.exactpro.th2.uploader.event.AppOption.EVENT_IN_BATCH_OPTION
+import com.exactpro.th2.uploader.event.AppOption.EVENT_SCOPE_OPTION
+import com.exactpro.th2.uploader.event.AppOption.HELP
 import com.exactpro.th2.uploader.event.AppOption.TH2_COMMON_CFG_DIR_OPTION
 import com.exactpro.th2.uploader.util.TimeCollector
 import mu.KotlinLogging
+import org.apache.commons.cli.CommandLine
 import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Options
 import org.apache.commons.cli.ParseException
 import java.nio.file.Path
@@ -37,14 +40,20 @@ fun main(args: Array<String>) {
     try {
         val cmdLine = DefaultParser().parse(options, args)
 
-        val eventsPath = EVENTS_FILE_OPTION.get(cmdLine).cast<Path>()
-        val commonFactoryPath = TH2_COMMON_CFG_DIR_OPTION.get(cmdLine).cast<Path>()
-        val eventInBatch = EVENT_IN_BATCH_OPTION.get(cmdLine).cast<Int>()
+        if (HELP.has(cmdLine)) {
+            AppOption.printHelp()
+        }
+
+        val eventsPath: Path = EVENTS_FILE_OPTION.get(cmdLine).cast()
+        val commonFactoryPath: Path = TH2_COMMON_CFG_DIR_OPTION.get(cmdLine).cast()
+        val eventInBatch: Int = EVENT_IN_BATCH_OPTION.get(cmdLine).cast()
 
         val globalTimes = TimeCollector(LOGGER::info)
         val eventsSent = globalTimes.measure {
             CommonFactory.createFromArguments("--configs", commonFactoryPath.toString()).use { factory ->
-                CoroutineUploader(factory).use { publisher ->
+                val book = getOptionOrDefault(cmdLine, EVENT_BOOK_OPTION, factory.boxConfiguration.bookName)
+                val scope = getOptionOrDefault(cmdLine, EVENT_SCOPE_OPTION, factory.boxConfiguration.boxName)
+                CoroutineUploader(factory.eventBatchRouter, book, scope).use { publisher ->
                     publisher.process(eventsPath, eventInBatch)
                 }
             }
@@ -52,8 +61,8 @@ fun main(args: Array<String>) {
         globalTimes.report("Global time (event/sec): $eventsSent", eventsSent)
     } catch (e: ParseException) {
         LOGGER.error(e) { "Parse arguments failure" }
-        HelpFormatter().printHelp("commandName [OPTIONS] <FILE>", options)
-    } catch(e: Exception) {
+        AppOption.printHelp()
+    } catch (e: Exception) {
         LOGGER.error(e) { "Fatal exception" }
     }
 }
@@ -64,3 +73,10 @@ private inline fun <reified T> Any.cast(): T {
     }
     return this
 }
+
+private fun getOptionOrDefault(cmdLine: CommandLine, option: AppOption, default: String): String =
+    if (option.has(cmdLine)) {
+        option.get(cmdLine).cast()
+    } else {
+        default
+    }

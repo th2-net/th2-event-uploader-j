@@ -18,32 +18,38 @@ package com.exactpro.th2.uploader.event
 
 import com.exactpro.th2.common.grpc.EventBatch
 import com.exactpro.th2.common.grpc.EventID
-import com.exactpro.th2.common.schema.factory.CommonFactory
+import com.exactpro.th2.common.schema.message.MessageRouter
+import com.exactpro.th2.uploader.event.bean.EventBean
+import com.exactpro.th2.uploader.event.util.createEvent
+import com.exactpro.th2.uploader.util.TimeCollector
+import com.exactpro.th2.uploader.util.TimeCollectorDummy
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import mu.KotlinLogging
-import com.exactpro.th2.uploader.event.bean.EventBean
-import com.exactpro.th2.uploader.event.util.createEvent
-import com.exactpro.th2.uploader.event.util.toProtoEvent
-import com.exactpro.th2.uploader.util.TimeCollector
-import com.exactpro.th2.uploader.util.TimeCollectorDummy
 import kotlinx.serialization.json.Json
+import mu.KotlinLogging
+import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.Executors
 import kotlin.io.path.bufferedReader
 
 class CoroutineUploader(
-    private val factory: CommonFactory,
+    private val eventRouter: MessageRouter<EventBatch>,
+    private val book: String,
+    private val scope: String,
 ) : AutoCloseable {
-    private val eventRouter = factory.eventBatchRouter
     private val dispatcher = Executors
         .newFixedThreadPool(3, ThreadFactoryBuilder().setNameFormat("publisher-%d").build())
         .asCoroutineDispatcher()
+
+    init {
+        require(isNotBlank(book)) { "Book is blank" }
+        require(isNotBlank(scope)) { "Scope is blank" }
+    }
 
     fun process(
         eventsPath: Path,
@@ -51,7 +57,7 @@ class CoroutineUploader(
         readBufferSize: Int = 50,
         batchBufferSize: Int = 10,
     ): Long = runBlocking(dispatcher) {
-        val rootEventId = createEvent(factory, "Root event ${Instant.now()}")
+        val rootEventId = createEvent(eventRouter, book, scope, "Root event ${Instant.now()}")
         val beanChannel = Channel<EventBean>(readBufferSize)
         val batchChannel = Channel<EventBatch>(batchBufferSize)
 

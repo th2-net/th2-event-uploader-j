@@ -30,6 +30,7 @@ dependencies {
 
     implementation("io.github.microutils:kotlin-logging:3.0.5")
 
+    implementation("org.apache.commons:commons-lang3")
     implementation("commons-cli:commons-cli:1.7.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test")

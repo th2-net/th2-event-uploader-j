@@ -17,8 +17,10 @@
 package com.exactpro.th2.uploader.event
 
 import org.apache.commons.cli.CommandLine
+import org.apache.commons.cli.HelpFormatter
 import org.apache.commons.cli.Option
 import org.apache.commons.cli.Options
+import org.apache.commons.lang3.StringUtils
 import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.extension
@@ -50,7 +52,7 @@ enum class AppOption(val option: Option) {
         }
     },
     EVENT_IN_BATCH_OPTION(
-        Option.builder().option("s").longOpt("event-in-batch").desc("Number of events in butch")
+        Option.builder().option("n").longOpt("event-in-batch").desc("Number of events in butch")
             .required().hasArg().build()
     ) {
         override fun String.checkAndTransform(): Int = requireNotNull(toIntOrNull()) {
@@ -60,7 +62,44 @@ enum class AppOption(val option: Option) {
                 "${option.longOpt} '$this' is negative or 0"
             }
         }
+    },
+    EVENT_SCOPE_OPTION(
+        Option.builder().option("s").longOpt("event-scope")
+            .desc("""
+                Scope is used for events id building. 
+                `boxName` field from `box.json` config is used by default.
+            """.trimIndent())
+            .hasArg().build()
+    ) {
+        override fun String.checkAndTransform(): String = this.also {
+            require(StringUtils.isNotBlank(this)) {
+                "${option.longOpt} '$this' is blank"
+            }
+        }
+    },
+    EVENT_BOOK_OPTION(
+        Option.builder().option("b").longOpt("event-book")
+            .desc("""
+                Book is used for for events id building. 
+                `bookName` field from `box.json` config is used by default.
+            """.trimIndent())
+            .hasArg().build()
+    ) {
+        override fun String.checkAndTransform(): String = this.also {
+            require(StringUtils.isNotBlank(this)) {
+                "${option.longOpt} '$this' is blank"
+            }
+        }
+    },
+    HELP(
+        Option.builder().option("h").longOpt("help").desc("Print commandline arguments").build()
+    ) {
+        override fun String.checkAndTransform(): Any {
+            throw UnsupportedOperationException("${option.longOpt} hasn't got arguments")
+        }
     };
+
+    fun has(cmdLine: CommandLine): Boolean = cmdLine.hasOption(option)
 
     fun get(cmdLine: CommandLine): Any = cmdLine.getOptionValue(option).checkAndTransform()
 
@@ -71,6 +110,9 @@ enum class AppOption(val option: Option) {
             AppOption.values().asSequence()
                 .map(AppOption::option)
                 .forEach(this::addOption)
+        }
+        fun printHelp() {
+            HelpFormatter().printHelp("./event-uploader [OPTIONS]", buildOptions())
         }
     }
 }
