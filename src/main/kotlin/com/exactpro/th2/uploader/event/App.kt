@@ -18,12 +18,6 @@ package com.exactpro.th2.uploader.event
 
 import com.exactpro.th2.common.schema.factory.CommonFactory
 import com.exactpro.th2.uploader.event.AppOption.Companion.buildOptions
-import com.exactpro.th2.uploader.event.AppOption.EVENTS_FILE_OPTION
-import com.exactpro.th2.uploader.event.AppOption.EVENT_BOOK_OPTION
-import com.exactpro.th2.uploader.event.AppOption.EVENT_IN_BATCH_OPTION
-import com.exactpro.th2.uploader.event.AppOption.EVENT_SCOPE_OPTION
-import com.exactpro.th2.uploader.event.AppOption.HELP
-import com.exactpro.th2.uploader.event.AppOption.TH2_COMMON_CFG_DIR_OPTION
 import com.exactpro.th2.uploader.util.TimeCollector
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
@@ -41,19 +35,19 @@ fun main(args: Array<String>) = runBlocking {
     try {
         val cmdLine = DefaultParser().parse(options, args)
 
-        if (HELP.has(cmdLine)) {
+        if (HelpOption.has(cmdLine)) {
             AppOption.printHelp()
         }
 
-        val eventsPath: Path = EVENTS_FILE_OPTION.get(cmdLine).cast()
-        val commonFactoryPath: Path = TH2_COMMON_CFG_DIR_OPTION.get(cmdLine).cast()
-        val eventInBatch: Int = EVENT_IN_BATCH_OPTION.get(cmdLine).cast()
+        val eventsPath: Path = EventsFileOption.get(cmdLine)
+        val commonFactoryPath: Path = CommonCfgDirOption.get(cmdLine)
+        val eventInBatch: Int = EventInBatchOption.get(cmdLine)
 
         val globalTimes = TimeCollector(LOGGER::info)
         val eventsSent = globalTimes.measures {
             CommonFactory.createFromArguments("--configs", commonFactoryPath.toString()).use { factory ->
-                val book = getOptionOrDefault(cmdLine, EVENT_BOOK_OPTION, factory.boxConfiguration.bookName)
-                val scope = getOptionOrDefault(cmdLine, EVENT_SCOPE_OPTION, factory.boxConfiguration.boxName)
+                val book = getOptionOrDefault(cmdLine, EventBookOption, factory.boxConfiguration.bookName)
+                val scope = getOptionOrDefault(cmdLine, EventScopeOption, factory.boxConfiguration.boxName)
                 CoroutineUploader(factory.eventBatchRouter, book, scope).use { publisher ->
                     publisher.process(eventsPath, eventInBatch)
                 }

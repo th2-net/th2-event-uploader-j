@@ -27,92 +27,106 @@ import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 
-enum class AppOption(val option: Option) {
-    EVENTS_FILE_OPTION(
-        Option.builder().option("e").longOpt("events-file").desc("JSONL file with events")
-            .required().hasArg().build()
-    ) {
-        override fun String.checkAndTransform(): Path = Path(this).also { path ->
-            require(path.isRegularFile()) {
-                "${option.longOpt} '$path' isn't exist or file"
-            }
-            require("jsonl".equals(path.extension, ignoreCase = true)) {
-                "${option.longOpt} '$path' has '${path.extension}' extension instead of 'jsonl'"
-            }
+sealed class AppOption(val option: Option) {
+
+    fun has(cmdLine: CommandLine): Boolean = cmdLine.hasOption(option)
+
+    abstract fun get(cmdLine: CommandLine): Any
+
+    companion object {
+        fun buildOptions(): Options = Options().apply {
+            addOption(EventsFileOption.option)
+            addOption(CommonCfgDirOption.option)
+            addOption(EventInBatchOption.option)
+            addOption(EventScopeOption.option)
+            addOption(EventBookOption.option)
+            addOption(HelpOption.option)
         }
-    },
-    TH2_COMMON_CFG_DIR_OPTION(
-        Option.builder().option("c").longOpt("th2-common-cfg-dir").desc("Directory with th2 common configs")
-            .required().hasArg().build()
-    ) {
-        override fun String.checkAndTransform(): Path = Path(this).also { path ->
-            require(path.isDirectory()) {
-                "${option.longOpt} '$path' isn't exist or directory"
-            }
+
+        fun printHelp() {
+            HelpFormatter().printHelp("./event-uploader [OPTIONS]", buildOptions())
         }
-    },
-    EVENT_IN_BATCH_OPTION(
-        Option.builder().option("n").longOpt("event-in-batch").desc("Number of events in butch")
-            .required().hasArg().build()
-    ) {
-        override fun String.checkAndTransform(): Int = requireNotNull(toIntOrNull()) {
+    }
+}
+
+object EventsFileOption : AppOption(
+    Option.builder().option("e").longOpt("events-file").desc("JSONL file with events")
+        .required().hasArg().build()
+) {
+    override fun get(cmdLine: CommandLine): Path = Path(cmdLine.getOptionValue(option)).also { path ->
+        require(path.isRegularFile()) {
+            "${option.longOpt} '$path' isn't exist or file"
+        }
+        require("jsonl".equals(path.extension, ignoreCase = true)) {
+            "${option.longOpt} '$path' has '${path.extension}' extension instead of 'jsonl'"
+        }
+    }
+}
+
+object CommonCfgDirOption : AppOption(
+    Option.builder().option("c").longOpt("th2-common-cfg-dir").desc("Directory with th2 common configs")
+        .required().hasArg().build()
+) {
+    override fun get(cmdLine: CommandLine): Path = Path(cmdLine.getOptionValue(option)).also { path ->
+        require(path.isDirectory()) {
+            "${option.longOpt} '$path' isn't exist or directory"
+        }
+    }
+}
+
+object EventInBatchOption : AppOption(
+    Option.builder().option("n").longOpt("event-in-batch").desc("Number of events in butch")
+        .required().hasArg().build()
+) {
+    override fun get(cmdLine: CommandLine): Int = cmdLine.getOptionValue(option).run {
+        requireNotNull(toIntOrNull()) {
             "${option.longOpt} '$this' isn't integer"
         }.also { num ->
             require(num > 0) {
                 "${option.longOpt} '$this' is negative or 0"
             }
         }
-    },
-    EVENT_SCOPE_OPTION(
-        Option.builder().option("s").longOpt("event-scope")
-            .desc("""
-                Scope is used for events id building. 
+    }
+}
+
+object EventScopeOption : AppOption(
+    Option.builder().option("s").longOpt("event-scope")
+        .desc(
+            """
+                Scope is used for events id building.
                 `boxName` field from `box.json` config is used by default.
-            """.trimIndent())
-            .hasArg().build()
-    ) {
-        override fun String.checkAndTransform(): String = this.also {
-            require(StringUtils.isNotBlank(this)) {
-                "${option.longOpt} '$this' is blank"
-            }
+            """.trimIndent()
+        )
+        .hasArg().build()
+) {
+    override fun get(cmdLine: CommandLine): String = cmdLine.getOptionValue(option).also {
+        require(StringUtils.isNotBlank(it)) {
+            "${option.longOpt} '$it' is blank"
         }
-    },
-    EVENT_BOOK_OPTION(
-        Option.builder().option("b").longOpt("event-book")
-            .desc("""
-                Book is used for for events id building. 
+    }
+}
+
+object EventBookOption : AppOption(
+    Option.builder().option("b").longOpt("event-book")
+        .desc(
+            """
+                Book is used for for events id building.
                 `bookName` field from `box.json` config is used by default.
-            """.trimIndent())
-            .hasArg().build()
-    ) {
-        override fun String.checkAndTransform(): String = this.also {
-            require(StringUtils.isNotBlank(this)) {
-                "${option.longOpt} '$this' is blank"
-            }
+            """.trimIndent()
+        )
+        .hasArg().build()
+) {
+    override fun get(cmdLine: CommandLine): String = cmdLine.getOptionValue(option).also {
+        require(StringUtils.isNotBlank(it)) {
+            "${option.longOpt} '$it' is blank"
         }
-    },
-    HELP(
-        Option.builder().option("h").longOpt("help").desc("Print commandline arguments").build()
-    ) {
-        override fun String.checkAndTransform(): Any {
-            throw UnsupportedOperationException("${option.longOpt} hasn't got arguments")
-        }
-    };
+    }
+}
 
-    fun has(cmdLine: CommandLine): Boolean = cmdLine.hasOption(option)
-
-    fun get(cmdLine: CommandLine): Any = cmdLine.getOptionValue(option).checkAndTransform()
-
-    protected abstract fun String.checkAndTransform(): Any
-
-    companion object {
-        fun buildOptions(): Options = Options().apply {
-            AppOption.values().asSequence()
-                .map(AppOption::option)
-                .forEach(this::addOption)
-        }
-        fun printHelp() {
-            HelpFormatter().printHelp("./event-uploader [OPTIONS]", buildOptions())
-        }
+object HelpOption : AppOption(
+    Option.builder().option("h").longOpt("help").desc("Print commandline arguments").build()
+) {
+    override fun get(cmdLine: CommandLine): Any {
+        throw UnsupportedOperationException("${option.longOpt} hasn't got arguments")
     }
 }
