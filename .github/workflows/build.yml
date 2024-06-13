@@ -12,10 +12,8 @@ on:
 
 jobs:
   license-check:
-    if: inputs.scanner-enabled
     uses: th2-net/.github/.github/workflows/license_check.yml@main
   owasp-scan:
-    if: inputs.scanner-enabled
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: false
@@ -24,17 +22,15 @@ jobs:
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
   build-gradle:
-    name: Build Gradle module ${{ inputs.projectPath }}
-    runs-on: ${{ inputs.runsOn }}
+    name: Build project
+    runs-on: ubuntu-20.04
     needs: [ owasp-scan, license-check ]
     steps:
       - uses: actions/checkout@v4
       - name: Get branch name
-        if: ${{ !inputs.release }}
         id: branch
         run: echo "branch_name=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
       - name: Get SHA of the commit
-        if: ${{ !inputs.release }}
         id: sha
         run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Get release_version
@@ -48,7 +44,7 @@ jobs:
         run: echo "value="${{ steps.ver.outputs.release_version }}-${{ steps.branch.outputs.branch_name }}-${{ github.run_id }}-${{ steps.sha.outputs.sha_short }}"" >> $GITHUB_OUTPUT
       - name: Show custom release version
         run: echo ${{ steps.release_ver.outputs.value }}
-      - name: Set up JDK ${{ inputs.javaVendor }} ${{ inputs.javaVersion }}
+      - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
@@ -66,9 +62,9 @@ jobs:
         if: always()
         with:
           files: |
-            ${{ inputs.projectPath }}/build/test-results/**/*.xml
-            ${{ inputs.projectPath }}/build/test-results/**/*.trx
-            ${{ inputs.projectPath }}/build/test-results/**/*.json
+            build/test-results/**/*.xml
+            build/test-results/**/*.trx
+            build/test-results/**/*.json
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
