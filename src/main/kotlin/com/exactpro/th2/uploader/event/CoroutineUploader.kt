@@ -27,11 +27,11 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
-import org.apache.commons.lang3.StringUtils.isNotBlank
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.Executors
@@ -47,35 +47,37 @@ class CoroutineUploader(
         .asCoroutineDispatcher()
 
     init {
-        require(isNotBlank(book)) { "Book is blank" }
-        require(isNotBlank(scope)) { "Scope is blank" }
+        require(book.isNotBlank()) { "Book is blank" }
+        require(scope.isNotBlank()) { "Scope is blank" }
     }
 
-    fun process(
+    suspend fun process(
         eventsPath: Path,
         eventInBatch: Int = 125,
         readBufferSize: Int = 50,
         batchBufferSize: Int = 10,
-    ): Long = runBlocking(dispatcher) {
-        val rootEventId = createEvent(eventRouter, book, scope, "Root event ${Instant.now()}")
-        val beanChannel = Channel<EventBean>(readBufferSize)
-        val batchChannel = Channel<EventBatch>(batchBufferSize)
+    ): Long = coroutineScope {
+        withContext(dispatcher) {
+            val rootEventId = createEvent(eventRouter, book, scope, "Root event ${Instant.now()}")
+            val beanChannel = Channel<EventBean>(readBufferSize)
+            val batchChannel = Channel<EventBatch>(batchBufferSize)
 
-        val readDiffered = async {
-            read(eventsPath, beanChannel)
-        }
-        val prepareJob = launch {
-            LOGGER.info { "Prepare coroutine started" }
-            prepare(rootEventId, eventInBatch, beanChannel, batchChannel)
-        }
-        val sendJob = launch {
-            LOGGER.info { "Send coroutine started" }
-            send(batchChannel)
-        }
+            val readDiffered = async {
+                read(eventsPath, beanChannel)
+            }
+            val prepareJob = launch {
+                LOGGER.info { "Prepare coroutine started" }
+                prepare(rootEventId, eventInBatch, beanChannel, batchChannel)
+            }
+            val sendJob = launch {
+                LOGGER.info { "Send coroutine started" }
+                send(batchChannel)
+            }
 
-        prepareJob.join()
-        sendJob.join()
-        readDiffered.await()
+            prepareJob.join()
+            sendJob.join()
+            readDiffered.await()
+        }
     }
 
     private suspend fun read(path: Path, channel: Channel<EventBean>): Long {

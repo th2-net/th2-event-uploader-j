@@ -25,6 +25,7 @@ import com.exactpro.th2.uploader.event.AppOption.EVENT_SCOPE_OPTION
 import com.exactpro.th2.uploader.event.AppOption.HELP
 import com.exactpro.th2.uploader.event.AppOption.TH2_COMMON_CFG_DIR_OPTION
 import com.exactpro.th2.uploader.util.TimeCollector
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.apache.commons.cli.CommandLine
 import org.apache.commons.cli.DefaultParser
@@ -34,7 +35,7 @@ import java.nio.file.Path
 
 private val LOGGER = KotlinLogging.logger { }
 
-fun main(args: Array<String>) {
+fun main(args: Array<String>) = runBlocking {
     LOGGER.info { "Publisher started with args: ${args.contentToString()}" }
     val options: Options = buildOptions()
     try {
@@ -49,7 +50,7 @@ fun main(args: Array<String>) {
         val eventInBatch: Int = EVENT_IN_BATCH_OPTION.get(cmdLine).cast()
 
         val globalTimes = TimeCollector(LOGGER::info)
-        val eventsSent = globalTimes.measure {
+        val eventsSent = globalTimes.measures {
             CommonFactory.createFromArguments("--configs", commonFactoryPath.toString()).use { factory ->
                 val book = getOptionOrDefault(cmdLine, EVENT_BOOK_OPTION, factory.boxConfiguration.bookName)
                 val scope = getOptionOrDefault(cmdLine, EVENT_SCOPE_OPTION, factory.boxConfiguration.boxName)
@@ -67,11 +68,8 @@ fun main(args: Array<String>) {
     }
 }
 
-private inline fun <reified T> Any.cast(): T {
-    require(this is T) {
-        "Incorrect type of value, actual: ${this::class.java}, expected: ${T::class.java}"
-    }
-    return this
+private inline fun <reified T> Any.cast(): T = requireNotNull(this as? T) {
+    "Incorrect type of value, actual: ${this::class.java}, expected: ${T::class.java}"
 }
 
 private fun getOptionOrDefault(cmdLine: CommandLine, option: AppOption, default: String): String =
