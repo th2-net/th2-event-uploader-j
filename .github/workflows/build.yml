@@ -24,7 +24,8 @@ jobs:
   build-gradle:
     name: Build project
     runs-on: ubuntu-20.04
-    needs: [ owasp-scan, license-check ]
+#    TODO: add owasp-scan to needs after change repository visibility to public
+    needs: [ license-check ]
     steps:
       - uses: actions/checkout@v4
       - name: Get branch name
