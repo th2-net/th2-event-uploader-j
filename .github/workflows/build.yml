@@ -11,6 +11,9 @@ on:
       - 'local-run/**'
 
 jobs:
+  prebuild-job:
+    name: Prebuild Job
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
   license-check:
     uses: th2-net/.github/.github/workflows/license_check.yml@main
   owasp-scan:
@@ -24,26 +27,9 @@ jobs:
   build-gradle:
     name: Build project
     runs-on: ubuntu-20.04
-    needs: [ license-check, owasp-scan ]
+    needs: [ license-check, owasp-scan, prebuild-job]
     steps:
       - uses: actions/checkout@v4
-      - name: Get branch name
-        id: branch
-        run: echo "branch_name=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
-      - name: Get SHA of the commit
-        id: sha
-        run: echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-      - name: Get release_version
-        id: ver
-        uses: BrycensRanch/read-properties-action@v1.0.4
-        with:
-          file: gradle.properties
-          property: release_version
-      - name: Build custom release version
-        id: release_ver
-        run: echo "value="${{ steps.ver.outputs.release_version }}-${{ steps.branch.outputs.branch_name }}-${{ github.run_id }}-${{ steps.sha.outputs.sha_short }}"" >> $GITHUB_OUTPUT
-      - name: Show custom release version
-        run: echo ${{ steps.release_ver.outputs.value }}
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -56,7 +42,7 @@ jobs:
         with:
           gradle-version: wrapper
       - name: Build with Gradle
-        run: ./gradlew --info -Prelease_version=${{ steps.release_ver.outputs.value }} clean build
+        run: ./gradlew --info -Prelease_version=${{ needs.prebuild-job.outputs.version }} clean build
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         if: always()
