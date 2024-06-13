@@ -46,8 +46,8 @@ fun main(args: Array<String>) = runBlocking {
         val globalTimes = TimeCollector(LOGGER::info)
         val eventsSent = globalTimes.measures {
             CommonFactory.createFromArguments("--configs", commonFactoryPath.toString()).use { factory ->
-                val book = getOptionOrDefault(cmdLine, EventBookOption, factory.boxConfiguration.bookName)
-                val scope = getOptionOrDefault(cmdLine, EventScopeOption, factory.boxConfiguration.boxName)
+                val book = getOptionOrDefault(cmdLine, EventBookOption::has, EventBookOption::get, factory.boxConfiguration.bookName)
+                val scope = getOptionOrDefault(cmdLine, EventScopeOption::has, EventScopeOption::get, factory.boxConfiguration.boxName)
                 CoroutineUploader(factory.eventBatchRouter, book, scope).use { publisher ->
                     publisher.process(eventsPath, eventInBatch)
                 }
@@ -62,13 +62,9 @@ fun main(args: Array<String>) = runBlocking {
     }
 }
 
-private inline fun <reified T> Any.cast(): T = requireNotNull(this as? T) {
-    "Incorrect type of value, actual: ${this::class.java}, expected: ${T::class.java}"
-}
-
-private fun getOptionOrDefault(cmdLine: CommandLine, option: AppOption, default: String): String =
-    if (option.has(cmdLine)) {
-        option.get(cmdLine).cast()
+private fun getOptionOrDefault(cmdLine: CommandLine, has: (CommandLine) -> Boolean, get: (CommandLine) -> String, default: String): String =
+    if (has(cmdLine)) {
+        get(cmdLine)
     } else {
         default
     }
