@@ -3,8 +3,14 @@ name: Build pre-release assembly of distributive
 on: workflow_dispatch
 
 jobs:
+  prebuild-job:
+    name: Prebuild Job
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
   license-check:
     uses: th2-net/.github/.github/workflows/license_check.yml@main
+    needs: [ prebuild-job ]
+    with:
+      version: ${{ needs.prebuild-job.outputs.version }}
   owasp-scan:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
@@ -16,17 +22,9 @@ jobs:
   build-gradle:
     name: Build project
     runs-on: ubuntu-20.04
-    needs: [ license-check, owasp-scan ]
+    needs: [ license-check, owasp-scan, prebuild-job]
     steps:
       - uses: actions/checkout@v4
-      - name: Get release_version
-        id: ver
-        uses: BrycensRanch/read-properties-action@v1.0.4
-        with:
-          file: gradle.properties
-          property: release_version
-      - name: Show custom release version
-        run: echo ${{ steps.ver.outputs.release_version }}
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
@@ -54,8 +52,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.ver.outputs.release_version }}
-          release_name: Release ${{ steps.ver.outputs.release_version }}
+          tag_name: ${{ needs.prebuild-job.outputs.version }}
+          release_name: Release ${{ needs.prebuild-job.outputs.version }}
           draft: false
           prerelease: true
       - name: Upload Release Asset
@@ -65,5 +63,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: build/distributions/*.zip
-          asset_name: th2-event-uploader-${{ steps.ver.outputs.release_version }}.zip
+          asset_name: th2-event-uploader-${{ needs.prebuild-job.outputs.version }}.zip
           asset_content_type: application/zip

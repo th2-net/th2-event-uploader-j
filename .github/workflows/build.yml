@@ -16,6 +16,9 @@ jobs:
     uses: th2-net/.github/.github/workflows/compound-prebuild-java-dev-workflow.yml@main
   license-check:
     uses: th2-net/.github/.github/workflows/license_check.yml@main
+    needs: [ prebuild-job ]
+    with:
+      version: ${{ needs.prebuild-job.outputs.version }}
   owasp-scan:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
@@ -54,6 +57,6 @@ jobs:
       - name: Archive build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: th2-event-uploader-${{ steps.release_ver.outputs.value }}
+          name: th2-event-uploader-${{ needs.prebuild-job.outputs.version }}
           path: build/distributions/*.zip
           retention-days: 14
