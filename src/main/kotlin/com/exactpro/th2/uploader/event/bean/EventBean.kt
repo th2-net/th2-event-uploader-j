@@ -17,6 +17,8 @@
 package com.exactpro.th2.uploader.event.bean
 
 import com.exactpro.th2.common.event.Event
+import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_NAME
+import com.exactpro.th2.common.event.Event.UNKNOWN_EVENT_TYPE
 import com.exactpro.th2.common.grpc.EventID
 import kotlinx.serialization.Serializable
 import com.exactpro.th2.common.grpc.Event as ProtoEvent
@@ -28,6 +30,11 @@ class EventBean(
     private val body: String? = null,
     private val attachedMessageIds: List<MessageIdBean> = emptyList()
 ) {
+    val size: Int = (name?.length ?: UNKNOWN_EVENT_NAME.length)
+        .plus (type?.length ?: UNKNOWN_EVENT_TYPE.length)
+        .plus(body?.length ?: 0)
+        .plus(attachedMessageIds.sumOf(MessageIdBean::size))
+
     fun toProtoEvent(parentEventId: EventID): ProtoEvent = Event.start().apply {
         name(this@EventBean.name)
         type(this@EventBean.type)

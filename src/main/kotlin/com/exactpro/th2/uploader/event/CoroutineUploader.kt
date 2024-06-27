@@ -53,7 +53,8 @@ class CoroutineUploader(
 
     suspend fun process(
         eventsPath: Path,
-        eventInBatch: Int = 125,
+        eventInBatch: Int = 300,
+        batchSize: Int = 256 * 1_024,
         readBufferSize: Int = 50,
         batchBufferSize: Int = 10,
     ): Long = coroutineScope {
@@ -67,7 +68,7 @@ class CoroutineUploader(
             }
             val prepareJob = launch {
                 LOGGER.info { "Prepare coroutine started" }
-                prepare(rootEventId, eventInBatch, beanChannel, batchChannel)
+                prepare(rootEventId, eventInBatch, batchSize, beanChannel, batchChannel)
             }
             val sendJob = launch {
                 LOGGER.info { "Send coroutine started" }
@@ -115,6 +116,7 @@ class CoroutineUploader(
     private suspend fun prepare(
         rootEventId: EventID,
         eventInBatch: Int,
+        batchSize: Int,
         beanChannel: Channel<EventBean>,
         batchChannel: Channel<EventBatch>
     ) {
@@ -125,8 +127,15 @@ class CoroutineUploader(
         val batchTimes = createTimeCollector(LOGGER.isDebugEnabled, LOGGER::debug)
         val batchChannelTimes = createTimeCollector(LOGGER.isTraceEnabled, LOGGER::trace)
 
-        var events = 0L
-        var batches = 0L
+        val eventIdSize = rootEventId.bookName.length
+            .plus(rootEventId.scope.length)
+            .plus(8 + 4) // timestamp in protobuf
+            .plus(rootEventId.id.length)
+
+        var size = eventIdSize // Event batch includes event id
+        var events = 0
+        var eventsTotal = 0L
+        var batchesTotal = 0L
 
         try {
             totalTimes.measures {
@@ -139,36 +148,44 @@ class CoroutineUploader(
                     }
                     batchBuilder.addEvents(event)
                     events += 1
+                    size += eventBean.size
+                        .plus(eventIdSize * 2) // event includes own and parent id
+                        .plus(8 + 4) // end timestamp in protobuf
 
-                    if (events % eventInBatch == 0L) {
+                    if (events == eventInBatch || size > batchSize) {
                         val batch = batchBuilder.build()
-                        val now = System.nanoTime()
-                        batchTimes.put(now - batchTime)
-                        batchTime = now
+                        System.nanoTime().also { now ->
+                            batchTimes.put(now - batchTime)
+                            batchTime = now
+                        }
                         batchChannelTimes.measures {
                             batchChannel.send(batch)
-                            batches += 1
+                            batchesTotal += 1
                         }
                         batchBuilder = EventBatch.newBuilder().setParentEventId(rootEventId)
+                        eventsTotal += events
+                        size = eventIdSize
+                        events = 0
                     }
                 }
 
-                if (events % eventInBatch != 0L) {
+                if (events != 0) {
                     batchChannel.send(batchBuilder.build())
-                    batches += 1
+                    batchesTotal += 1
+                    eventsTotal += events
                 }
             }
         } catch (e: Exception) {
             batchChannel.close(e)
-            LOGGER.error(e) { "Prepare method failure, sent [batches: $batches, events: $events]" }
+            LOGGER.error(e) { "Prepare method failure, sent [batches: $batchesTotal, events: $eventsTotal]" }
             throw e
         } finally {
             batchChannel.close()
             batchChannelTimes.report("Prepare: batch channel (event/sec)", eventInBatch.toLong())
             eventTimes.report("Prepare: event created (event/sec)")
             batchTimes.report("Prepare: batch created (event/sec)", eventInBatch.toLong())
-            totalTimes.report("Prepare: total (event/sec)", events)
-            LOGGER.info { "Prepare method complete, sent [batches: $batches, events: $events]" }
+            totalTimes.report("Prepare: total (event/sec)", eventsTotal)
+            LOGGER.info { "Prepare method complete, sent [batches: $batchesTotal, events: $eventsTotal]" }
         }
     }
 

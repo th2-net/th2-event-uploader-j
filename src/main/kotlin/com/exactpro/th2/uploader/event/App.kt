@@ -42,6 +42,7 @@ fun main(args: Array<String>) = runBlocking {
         val eventsPath: Path = EventsFileOption.get(cmdLine)
         val commonFactoryPath: Path = CommonCfgDirOption.get(cmdLine)
         val eventInBatch: Int = EventInBatchOption.get(cmdLine)
+        val batchSize: Int = BatchSizeOption.get(cmdLine)
 
         val globalTimes = TimeCollector(LOGGER::info)
         val eventsSent = globalTimes.measures {
@@ -49,7 +50,7 @@ fun main(args: Array<String>) = runBlocking {
                 val book = getOptionOrDefault(cmdLine, EventBookOption, factory.boxConfiguration.bookName)
                 val scope = getOptionOrDefault(cmdLine, EventScopeOption, factory.boxConfiguration.boxName)
                 CoroutineUploader(factory.eventBatchRouter, book, scope).use { publisher ->
-                    publisher.process(eventsPath, eventInBatch)
+                    publisher.process(eventsPath, eventInBatch, batchSize)
                 }
             }
         }

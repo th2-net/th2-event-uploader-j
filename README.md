@@ -1,4 +1,4 @@
-# th2-event-uploader (0.0.1)
+# th2-event-uploader (0.0.2)
 
 The event-uploader application reads events content from a [jsonl](https://jsonlines.org/) file and publish it via [th2 common library](https://github.com/th2-net/th2-common-j)
 
@@ -9,16 +9,24 @@ You can get actual list of arguments by the command
 ```
 ```text
 usage: ./event-uploader [OPTIONS]
--b,--event-book <arg>           Book is used for for events id building.
-                                `bookName` field from `box.json` config
-                                is used by default.
--c,--th2-common-cfg-dir <arg>   Directory with th2 common configs
--e,--events-file <arg>          JSONL file with events
--h,--help                       Print commandline arguments
--n,--event-in-batch <arg>       Number of events in butch
--s,--event-scope <arg>          Scope is used for events id building.
-                                `boxName` field from `box.json` config is
-                                used by default.
+ -b,--event-book <arg>           Book is used for for events id building.
+                                 `bookName` field from `box.json` config
+                                 is used by default.
+ -bs,--batch-size <arg>          Max batch size if number of events less
+                                 than specified in 'event-in-batch' argument.
+                                 Supported units: Byte ('262400' /
+                                 '262400B'), Kilobyte ('256KB').
+                                 Default value is 256KB
+ -c,--th2-common-cfg-dir <arg>   Directory with th2 common configs
+ -e,--events-file <arg>          JSONL file with events
+ -h,--help                       Print commandline arguments
+ -n,--event-in-batch <arg>       Max number of events in batch if
+                                 calculated size less than specified in
+                                 'batch-size' argument.
+                                 Default value is 300 events
+ -s,--event-scope <arg>          Scope is used for events id building.
+                                 `boxName` field from `box.json` config is
+                                 used by default.
 ```
 
 ## Events file format (*.jsonl)
@@ -88,3 +96,9 @@ spec:
 
 ### rabbitMQ.json
 You should grab this config from th2 cluster or `th2-pico` you are going to connect 
+
+## Release notes:
+
+### 0.0.2
+* added `-bs,--batch-size` optional argument
+* set default value for `-n,--event-in-batch` option

@@ -28,6 +28,12 @@ class MessageIdBean(
     private val timestamp: Long,
     private val sequence: Long,
 ) {
+    val size: Int = book.length
+        .plus(alias.length)
+        .plus(group.length)
+        .plus(8 + 4) // timestamp in protobuf
+        .plus(8) // sequence
+
     fun toProto(): MessageID = MessageID.newBuilder().apply {
         this.bookName = this@MessageIdBean.book
         this.timestamp = Timestamps.fromNanos(this@MessageIdBean.timestamp)

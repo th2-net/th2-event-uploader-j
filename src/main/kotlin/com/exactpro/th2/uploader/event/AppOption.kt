@@ -27,7 +27,9 @@ import kotlin.io.path.extension
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 
-sealed class AppOption(val option: Option) {
+sealed class AppOption(
+    val option: Option
+) {
 
     fun has(cmdLine: CommandLine): Boolean = cmdLine.hasOption(option)
 
@@ -38,6 +40,7 @@ sealed class AppOption(val option: Option) {
             addOption(EventsFileOption.option)
             addOption(CommonCfgDirOption.option)
             addOption(EventInBatchOption.option)
+            addOption(BatchSizeOption.option)
             addOption(EventScopeOption.option)
             addOption(EventBookOption.option)
             addOption(HelpOption.option)
@@ -75,10 +78,14 @@ object CommonCfgDirOption : AppOption(
 }
 
 object EventInBatchOption : AppOption(
-    Option.builder().option("n").longOpt("event-in-batch").desc("Number of events in butch")
-        .required().hasArg().build()
+    Option.builder().option("n").longOpt("event-in-batch")
+        .desc("""
+            Max number of events in batch if calculated size less than specified in 'batch-size' argument.
+            Default value is 300 events
+        """.trimIndent())
+        .hasArg().build()
 ) {
-    override fun get(cmdLine: CommandLine): Int = cmdLine.getOptionValue(option).run {
+    override fun get(cmdLine: CommandLine): Int = cmdLine.getOptionValue(option)?.run {
         requireNotNull(toIntOrNull()) {
             "${option.longOpt} '$this' isn't integer"
         }.also { num ->
@@ -86,7 +93,35 @@ object EventInBatchOption : AppOption(
                 "${option.longOpt} '$this' is negative or 0"
             }
         }
-    }
+    } ?: 300
+}
+
+object BatchSizeOption : AppOption(
+    Option.builder().option("bs").longOpt("batch-size")
+        .desc("""
+            Max batch size if number of events less than specified in 'event-in-batch' argument.
+            Supported units: Byte ('262400' / '262400B'), Kilobyte ('256KB').
+            Default value is 256KB
+        """.trimIndent())
+        .hasArg().build(),
+) {
+    override fun get(cmdLine: CommandLine): Int = cmdLine.getOptionValue(option)?.run {
+        requireNotNull(
+            when {
+                endsWith("KB") -> substringBefore("KB").toIntOrNull()?.multiply(1_024)
+                endsWith("B") -> substringBefore("B").toIntOrNull()
+                else -> this.toIntOrNull()
+            }
+        ) {
+            "${option.longOpt} '$this' has unknown format, expected '#' or '#B' or '#KB'"
+        }.also { num ->
+            require(num > 0) {
+                "${option.longOpt} '$this' is negative or 0"
+            }
+        }
+    } ?: (256 * 1_024)
+
+    private infix fun Int.multiply(value: Int) = this * value
 }
 
 object EventScopeOption : AppOption(
