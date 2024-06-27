@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.exactpro.th2"
-version = "0.0.1"
+version = project.findProperty("release_version") as String
 
 repositories {
     mavenCentral()
@@ -22,7 +22,11 @@ repositories {
 }
 
 dependencies {
-    implementation("com.exactpro.th2:common:5.13.1-dev")
+    implementation("com.exactpro.th2:common:5.13.1-dev") {
+        exclude(group = "com.squareup.okhttp3", module = "okhttp")
+        exclude(group = "com.squareup.okhttp3", module = "logging-interceptor")
+        exclude(group = "com.squareup.okio", module = "okio")
+    }
     implementation("com.exactpro.th2:common-utils:2.2.3-dev")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")

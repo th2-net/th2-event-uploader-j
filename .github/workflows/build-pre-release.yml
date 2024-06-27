@@ -1,0 +1,70 @@
+name: Build pre-release assembly of distributive
+
+on: workflow_dispatch
+
+env:
+  JVM_VERSION: 11
+  JVM_VENDOR: 'zulu'
+jobs:
+  prebuild-job:
+    name: Prebuild Job
+    uses: th2-net/.github/.github/workflows/compound-prebuild-java-workflow.yml@main
+  license-check:
+    uses: th2-net/.github/.github/workflows/license_check.yml@main
+    needs: [ prebuild-job ]
+    with:
+      version: ${{ needs.prebuild-job.outputs.version }}
+  owasp-scan:
+    uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
+    with:
+      multiproject: false
+      javaVersion: ${{ env.JVM_VERSION }}
+      javaVendor: ${{ env.JVM_VENDOR }}
+    secrets:
+      nvd-api-key: ${{ secrets.NVD_APIKEY }}
+  build-gradle:
+    name: Build project
+    runs-on: ubuntu-20.04
+    needs: [ license-check, owasp-scan, prebuild-job]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JVM_VENDOR }}
+          java-version: ${{ env.JVM_VERSION }}
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: wrapper
+      - name: Build with Gradle
+        run: ./gradlew --info clean build
+      - name: Publish Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: |
+            build/test-results/**/*.xml
+            build/test-results/**/*.trx
+            build/test-results/**/*.json
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.prebuild-job.outputs.version }}
+          release_name: Release ${{ needs.prebuild-job.outputs.version }}
+          draft: false
+          prerelease: true
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/distributions/*.zip
+          asset_name: th2-event-uploader-${{ needs.prebuild-job.outputs.version }}.zip
+          asset_content_type: application/zip
