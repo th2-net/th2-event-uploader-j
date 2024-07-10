@@ -2,7 +2,7 @@ plugins {
     application
     kotlin("jvm") version "1.8.22"
     id("org.jetbrains.kotlin.plugin.serialization") version "1.8.22"
-    id("com.exactpro.th2.gradle.base") version "0.0.8"
+    id("com.exactpro.th2.gradle.base") version "0.1.1"
 }
 
 group = "com.exactpro.th2"
