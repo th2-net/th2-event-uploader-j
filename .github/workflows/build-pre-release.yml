@@ -2,9 +2,6 @@ name: Build pre-release assembly of distributive
 
 on: workflow_dispatch
 
-env:
-  JVM_VERSION: 11
-  JVM_VENDOR: 'zulu'
 jobs:
   prebuild-job:
     name: Prebuild Job
@@ -18,8 +15,8 @@ jobs:
     uses: th2-net/.github/.github/workflows/owasp-gradle-scan.yml@main
     with:
       multiproject: false
-      javaVersion: ${{ env.JVM_VERSION }}
-      javaVendor: ${{ env.JVM_VENDOR }}
+      javaVersion: 11
+      javaVendor: 'zulu'
     secrets:
       nvd-api-key: ${{ secrets.NVD_APIKEY }}
   build-gradle:
@@ -31,8 +28,8 @@ jobs:
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
-          distribution: ${{ env.JVM_VENDOR }}
-          java-version: ${{ env.JVM_VERSION }}
+          distribution: 'zulu'
+          java-version: 11
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@v3
       - name: Setup Gradle
